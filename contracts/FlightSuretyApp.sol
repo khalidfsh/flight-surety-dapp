@@ -9,6 +9,7 @@ import "../node_modules/openzeppelin-solidity/contracts/math/SafeMath.sol";
 
 contract FlightSuretyApp {
     using SafeMath for uint256;
+    using SafeMath for uint8;
 
 /* ============================================================================================== */
 /*                                         DATA STRUCTURES                                        */
@@ -27,12 +28,18 @@ contract FlightSuretyApp {
 /*                                    DATA CONSTANTS&VARIABLES                                    */
 /* ============================================================================================== */
     // Flight status codees
-    uint8 private constant STATUS_CODE_UNKNOWN = 0;
-    uint8 private constant STATUS_CODE_ON_TIME = 10;
-    uint8 private constant STATUS_CODE_LATE_AIRLINE = 20;
-    uint8 private constant STATUS_CODE_LATE_WEATHER = 30;
-    uint8 private constant STATUS_CODE_LATE_TECHNICAL = 40;
-    uint8 private constant STATUS_CODE_LATE_OTHER = 50;
+    // uint8 private constant STATUS_CODE_UNKNOWN = 0;
+    // uint8 private constant STATUS_CODE_ON_TIME = 10;
+    // uint8 private constant STATUS_CODE_LATE_AIRLINE = 20;
+    // uint8 private constant STATUS_CODE_LATE_WEATHER = 30;
+    // uint8 private constant STATUS_CODE_LATE_TECHNICAL = 40;
+    // uint8 private constant STATUS_CODE_LATE_OTHER = 50;
+
+    /// Constant of allowed number of airline to be registered BY_MEDIATION
+    uint8 MEDIATION_REGISTERATION_LIMET;
+
+    /// Constant of persantage of active airline most votes for a new registered airline
+    uint8 PERSANTAGE_OF_VOTER;
 
     /// Account used to deploy contract
     address private contractOwner;
@@ -52,14 +59,23 @@ contract FlightSuretyApp {
 
     /// @dev Constructor
     /// The deploying account becomes contractOwner
-    constructor(address dataContractAddress) public 
+    constructor
+    (
+        address dataContractAddress,
+        uint8 mediationLimt,
+        uint8 persantageOfVoters
+    ) 
+        public 
     {
         flightSuretyData = FlightSuretyDataInterface(dataContractAddress);
         contractOwner = msg.sender;
+        MEDIATION_REGISTERATION_LIMET = mediationLimt;
+        PERSANTAGE_OF_VOTER = persantageOfVoters;
     }
 /* ---------------------------------------------------------------------------------------------- */
 
 
+    event AirlineRegistered(address airlineAddress);
 
 /* ============================================================================================== */
 /*                                       FUNCTION MODIFIERS                                       */
@@ -69,7 +85,8 @@ contract FlightSuretyApp {
     modifier requireIsOperational() 
     {
          // Modify to call data contract's status
-        require(isOperational(), "Contract is currently not operational");  
+        require(isOperational(), "Data contract is currently not operational");  
+        require(flightSuretyData.isAuthorized(address(this)), "This app contract is currently not authorized");  
         _;
     }
 
@@ -79,6 +96,37 @@ contract FlightSuretyApp {
         require(msg.sender == contractOwner, "Caller is not contract owner");
         _;
     }
+
+    /// @dev Modifier that checks if airline address not existing in data
+    modifier requireNotExistAirline(address airlineAddress) {
+        require(!flightSuretyData.isAirlineExist(airlineAddress), "Cannot register a registered airline address");
+        _;
+    }
+
+    /// @dev Modifier that checks if airline address existing in data
+    modifier requireExistAirline(address airlineAddress) {
+        require(flightSuretyData.isAirlineExist(airlineAddress), "Airline address not existing");
+        _;
+    }
+
+    /// @dev Modifier that checks if airline address has registered
+    modifier requireIsAirlineRegistered(address airlineAddress) {
+        require(isAirlineRegistered(airlineAddress), "Airline not registered");
+        _;
+    }
+
+    /// @dev Modifier that checks if airline address waiting for votes
+    modifier requireIsAirlineWaitingForVotes(address airlineAddress) {
+        require(isAirlineWaitingForVotes(airlineAddress), "Airline not waiting for votes");
+        _;
+    }
+
+    /// @dev Modifier that checks if airline address has funded
+    modifier requireIsAirlineFunded(address airlineAddress) {
+         require(isAirlineFunded(airlineAddress), "Airline not funded");
+        _;
+    }
+
 /* ---------------------------------------------------------------------------------------------- */
 
 
@@ -95,6 +143,49 @@ contract FlightSuretyApp {
     {
         return flightSuretyData.isOperational();
     }
+
+    /// @dev Check if airline is waiting for votes
+    /// @param airlineAddress airline address to check
+    /// @return A boolean if airline state is `WaitingForVotes`
+    function isAirlineWaitingForVotes(address airlineAddress)
+        public
+        view
+        returns(bool)
+    {
+        return(
+            flightSuretyData.getAirlineState(airlineAddress)
+            == FlightSuretyDataInterface.AirlineRegisterationState.WaitingForVotes
+        );
+    }
+
+    /// @dev Check if airline is registered
+    /// @param airlineAddress airline address to check
+    /// @return A boolean if airline state is `Registered`
+    function isAirlineRegistered(address airlineAddress)
+        public
+        view
+        returns(bool)
+    {
+        return(
+            flightSuretyData.getAirlineState(airlineAddress)
+            == FlightSuretyDataInterface.AirlineRegisterationState.Registered
+        );
+    }
+
+    /// @dev Check if airline has funded
+    /// @param airlineAddress airline address to check
+    /// @return A boolean if airline state is `Funded`
+    function isAirlineFunded(address airlineAddress)
+        public
+        view
+        returns(bool)
+    {
+        return(
+            flightSuretyData.getAirlineState(airlineAddress)
+            == FlightSuretyDataInterface.AirlineRegisterationState.Funded
+        );
+    }
+
 /* ---------------------------------------------------------------------------------------------- */
 
 
@@ -103,12 +194,74 @@ contract FlightSuretyApp {
 /*                                    SMART CONTRACT FUNCTIONS                                    */
 /* ============================================================================================== */
     /// @dev Add an airline to the registration queue
-    function registerAirline()
+    function registerAirline
+    (
+        address airlineAddress,
+        string calldata name
+    )
         external
-        pure
-        returns(bool success, uint256 votes)
+        requireIsOperational()
+        requireNotExistAirline(airlineAddress)
     {
-        return (success, 0);
+        if (flightSuretyData.getRegistrationType() == FlightSuretyDataInterface.RegisterationType.BY_MEDIATION) {
+            require(isAirlineFunded(msg.sender), "Airline should be funded to add new airline");
+            flightSuretyData.registerAirline(
+                airlineAddress,
+                name,
+                FlightSuretyDataInterface.AirlineRegisterationState.Registered
+            );
+            
+            if (flightSuretyData.getNumberOfRegisteredAirlines() == MEDIATION_REGISTERATION_LIMET)
+                flightSuretyData.setRegistrationType(
+                    FlightSuretyDataInterface.RegisterationType.BY_VOTERS
+                );
+        }
+        else {
+            require(msg.sender == airlineAddress, "Only the owner of registring account can register himself");
+            flightSuretyData.registerAirline(
+                airlineAddress,
+                name,
+                FlightSuretyDataInterface.AirlineRegisterationState.WaitingForVotes
+            );
+        }
+        emit AirlineRegistered(airlineAddress);
+    }
+
+    function fundMyAirline()
+        external
+        payable
+        requireIsOperational()
+        requireExistAirline(msg.sender)
+        requireIsAirlineRegistered(msg.sender)
+    {
+        require(msg.value >= 10 ether, "Funding must be 10 Ether");
+
+        flightSuretyData.fund.value(10 ether);
+
+        if (msg.value > 10 ether)
+            msg.sender.transfer(msg.value - 10 ether);
+
+        //emit
+    }
+
+    function voteForAirline(address airlineAddress)
+        external
+        requireIsOperational
+        requireExistAirline(airlineAddress)
+        requireExistAirline(msg.sender)
+        requireIsAirlineWaitingForVotes(airlineAddress)
+        requireIsAirlineFunded(msg.sender)
+    {
+        flightSuretyData.addAirlineVote(airlineAddress);
+
+        //check if airline passes consensus voters
+        uint consensusLimtNumber = flightSuretyData.getNumberOfActiveAirlines().mul(uint(PERSANTAGE_OF_VOTER.div(100)));
+        if (flightSuretyData.getAirlineVotes(airlineAddress) >= consensusLimtNumber)
+            flightSuretyData.setAirlineState(
+                airlineAddress,
+                FlightSuretyDataInterface.AirlineRegisterationState.Registered
+            );
+        ///emit
     }
 
     /// @dev Register a future flight for insuring.

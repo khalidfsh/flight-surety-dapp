@@ -10,17 +10,14 @@ module.exports = async function(deployer, network, accounts) {
   await deployer.deploy(FlightSuretyData);
   const dataContract = await FlightSuretyData.deployed();
 
-  // await deployer.deploy(FlightSuretyDataInterface);
-  // const dataInterfaceContract = await FlightSuretyData.deployed();
 
-  // deployer.link(dataInterfaceContract, FlightSuretyApp);
-
-  await deployer.deploy(FlightSuretyApp, dataContract.address);
+  
+  await deployer.deploy(FlightSuretyApp, dataContract.address, "4", "50");
   const appContract = await FlightSuretyData.deployed();
 
   let config = {
     localhost: {
-      url: 'http://localhost:8545',
+      url: 'http://localhost:9545',
       dataAddress: dataContract.address,
       appAddress: appContract.address
     }
