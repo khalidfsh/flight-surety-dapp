@@ -53,7 +53,7 @@ contract FlightSuretyData is FlightSuretyDataInterface {
 /* ============================================================================================== */
     /// @dev Constructor
     /// The deploying account becomes contractOwner and adding first airline 
-    constructor() public 
+    constructor() public payable
     {
         contractOwner = msg.sender;
 

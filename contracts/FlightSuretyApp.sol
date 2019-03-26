@@ -61,11 +61,11 @@ contract FlightSuretyApp {
     /// The deploying account becomes contractOwner
     constructor
     (
-        address dataContractAddress,
+        address payable dataContractAddress,
         uint8 mediationLimt,
         uint8 persantageOfVoters
     ) 
-        public 
+        public
     {
         flightSuretyData = FlightSuretyDataInterface(dataContractAddress);
         contractOwner = msg.sender;
@@ -236,10 +236,8 @@ contract FlightSuretyApp {
     {
         require(msg.value >= 10 ether, "Funding must be 10 Ether");
 
-        flightSuretyData.fund.value(10 ether);
-
-        if (msg.value > 10 ether)
-            msg.sender.transfer(msg.value - 10 ether);
+        (bool success, ) = address(flightSuretyData).call.value(10 ether)(abi.encodeWithSignature("empty()"));
+        require(success, "somthing went rong, try again");
 
         //emit
     }
@@ -255,12 +253,15 @@ contract FlightSuretyApp {
         flightSuretyData.addAirlineVote(airlineAddress);
 
         //check if airline passes consensus voters
-        uint consensusLimtNumber = flightSuretyData.getNumberOfActiveAirlines().mul(uint(PERSANTAGE_OF_VOTER.div(100)));
-        if (flightSuretyData.getAirlineVotes(airlineAddress) >= consensusLimtNumber)
+        uint oddGarde = flightSuretyData.getNumberOfActiveAirlines().mod(2);
+        uint consensusLimtNumber = flightSuretyData.getNumberOfActiveAirlines().mul(PERSANTAGE_OF_VOTER).div(100).add(oddGarde);
+
+        if ((flightSuretyData.getAirlineVotes(airlineAddress)) >= consensusLimtNumber) {
             flightSuretyData.setAirlineState(
                 airlineAddress,
                 FlightSuretyDataInterface.AirlineRegisterationState.Registered
             );
+        }
         ///emit
     }
 
