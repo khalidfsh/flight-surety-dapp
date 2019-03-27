@@ -207,6 +207,32 @@ contract FlightSuretyData is FlightSuretyDataInterface {
         return airlines[airlineAddress].isExist;
     }
 
+    /// @dev Get an airline registring voter state
+    /// @param airlineAddress Ethereum address of airline to check
+    /// @param voterAddress Ethereum address of voter to check
+    /// @return Boolean eather its voted or not
+    function isVotedForRegisteringAirline(address airlineAddress, address voterAddress) 
+        external
+        view
+        requireIsOperational
+        returns(bool)
+    {
+        return airlines[airlineAddress].registeringVotes.voters[voterAddress];
+    }
+
+    /// @dev Get an airline removing voter state
+    /// @param airlineAddress Ethereum address of airline to check
+    /// @param voterAddress Ethereum address of voter to check
+    /// @return Boolean eather its voted or not
+    function isVotedForRemovingAirline(address airlineAddress, address voterAddress) 
+        external
+        view
+        requireIsOperational
+        returns(bool)
+    {
+        return airlines[airlineAddress].removingVotes.voters[voterAddress];
+    }
+
     /// @dev Get the number of registered airlines
     /// @return Current number of registered airline as `uint256`
     function getNumberOfRegisteredAirlines()
@@ -240,7 +266,7 @@ contract FlightSuretyData is FlightSuretyDataInterface {
         returns(
             string memory name,
             AirlineRegisterationState state,
-            uint numberOfVotes,
+            uint numberOfRegistringVotes,
             uint8 failureRate,
             bool isExist,
             bytes32[] memory flightKeys
@@ -250,7 +276,7 @@ contract FlightSuretyData is FlightSuretyDataInterface {
         return(
             _airline.name,
             _airline.state,
-            _airline.numberOfVotes,
+            _airline.registeringVotes.numberOfVotes,
             _airline.failureRate,
             _airline.isExist,
             _airline.flightKeys
@@ -281,7 +307,7 @@ contract FlightSuretyData is FlightSuretyDataInterface {
         requireExistAirline(airlineAddress)
         returns(uint)
     {
-        return airlines[airlineAddress].numberOfVotes;
+        return airlines[airlineAddress].registeringVotes.numberOfVotes;
     }
 
 
@@ -335,8 +361,9 @@ contract FlightSuretyData is FlightSuretyDataInterface {
         external
         requireCallerAuthorized()
     {
-        uint currentNumber = airlines[airlineAddress].numberOfVotes;
-        airlines[airlineAddress].numberOfVotes = currentNumber.add(1);
+        uint currentNumber = airlines[airlineAddress].registeringVotes.numberOfVotes;
+        airlines[airlineAddress].registeringVotes.voters[tx.origin] = true;
+        airlines[airlineAddress].registeringVotes.numberOfVotes = currentNumber.add(1);
     }
 
     /// @dev Update airline failure rate
@@ -421,9 +448,10 @@ contract FlightSuretyData is FlightSuretyDataInterface {
         airlines[account] = Airline({
             name: name,
             state: state,
-            numberOfVotes: 0,
             failureRate: 0,
             isExist: true,
+            registeringVotes: Votes(0),
+            removingVotes: Votes(0),
             flightKeys: new bytes32[](0)
         });
     }

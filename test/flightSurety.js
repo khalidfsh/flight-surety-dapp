@@ -256,8 +256,18 @@ contract('Flight Surety Tests', async (accounts) => {
       );
 
       let addedAirline = await config.flightSuretyData.getAirline.call(config.airlinesByVotes[0]);
-      assert.equal(addedAirline.numberOfVotes, '1', "votes did not change")
+      assert.equal(addedAirline.numberOfRegistringVotes, '1', "votes did not change")
       assert.equal(addedAirline.state, '0', "state changed before 50% consensus")
+    });
+
+    it(`voter allready votes for an airline can not vote again using requireNewVoter `, async() => {
+      await TruffleAssert.reverts(
+        config.flightSuretyApp.voteForAirline(config.airlinesByVotes[0], {
+          from: config.owner,
+        }),
+        "You voted for this airline",
+        "voter can vote again!!"
+      )
     });
 
     it(`airline in waiting for votes state should not change its state untill 50% of active airline votes`, async() => {
@@ -266,7 +276,7 @@ contract('Flight Surety Tests', async (accounts) => {
       );
 
       let addedAirline = await config.flightSuretyData.getAirline.call(config.airlinesByVotes[0]);
-      assert.equal(addedAirline.numberOfVotes, '2')
+      assert.equal(addedAirline.numberOfRegistringVotes, '2')
       //AirlineRegisterationState.registered == 1
       assert.equal(addedAirline.state, '1')
     });

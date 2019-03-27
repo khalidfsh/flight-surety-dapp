@@ -123,7 +123,13 @@ contract FlightSuretyApp {
 
     /// @dev Modifier that checks if airline address has funded
     modifier requireIsAirlineFunded(address airlineAddress) {
-         require(isAirlineFunded(airlineAddress), "Airline not funded");
+        require(isAirlineFunded(airlineAddress), "Airline not funded");
+        _;
+    }
+
+    /// @dev Modifier checks if a voter airlin has allready votes for an airline
+    modifier requireNewVoter(address airline, address voter) {
+        require(!flightSuretyData.isVotedForRegisteringAirline(airline, voter), "You voted for this airline");
         _;
     }
 
@@ -249,6 +255,7 @@ contract FlightSuretyApp {
         requireExistAirline(msg.sender)
         requireIsAirlineWaitingForVotes(airlineAddress)
         requireIsAirlineFunded(msg.sender)
+        requireNewVoter(airlineAddress, msg.sender)
     {
         flightSuretyData.addAirlineVote(airlineAddress);
 

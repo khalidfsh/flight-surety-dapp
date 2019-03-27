@@ -40,10 +40,17 @@ interface FlightSuretyDataInterface {
     struct Airline {
         string name;
         AirlineRegisterationState state;
-        uint numberOfVotes;
         uint8 failureRate;
         bool isExist;
+        Votes registeringVotes;
+        Votes removingVotes;
         bytes32[] flightKeys;
+    }
+
+    /// Votes struct to save voters addresses
+    struct Votes {
+        uint numberOfVotes;
+        mapping(address => bool) voters;
     }
 
     // /// Flight data structure to be saved in data mapping 
@@ -67,6 +74,9 @@ interface FlightSuretyDataInterface {
     function setRegistrationType(RegisterationType) external;
 
     function isAirlineExist(address) external view returns(bool);
+    function isVotedForRegisteringAirline(address, address) external view returns(bool);
+    function isVotedForRemovingAirline(address, address) external view returns(bool);
+
     function getNumberOfRegisteredAirlines() external view returns(uint256);
     function getNumberOfActiveAirlines() external view returns(uint256);
     function getAirline(address)
