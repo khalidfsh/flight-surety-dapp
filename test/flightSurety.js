@@ -293,4 +293,85 @@ contract('Flight Surety Tests', async (accounts) => {
 
   });
 
+
+
+  describe(`\n🛫 Flights 🛬`, async() => {
+
+    it(`airline can register a new flight`, async() => {
+      console.log(config.flights)
+      await TruffleAssert.passes(
+        config.flightSuretyApp.registerFlight(
+          config.flights[0].name,
+          config.flights[0].departure,
+          config.flights[0].ticketNumbers,
+          { from: config.firstAirline }
+        ),
+        "cannot add new flight `registerFlight`"
+      );
+
+    });
+
+    it(`airline can not register a registered flight`, async() => {
+      await TruffleAssert.reverts(
+        config.flightSuretyApp.registerFlight(
+          config.flights[0].name,
+          config.flights[0].departure,
+          config.flights[0].ticketNumbers,
+          { from: config.firstAirline }
+        ),
+        "Flight allredy registered",
+        "can register allready registered flight see registerFlight function"
+      );
+    });
+
+    it(`airline can add extra ticket numbers for a flight`, async() => {
+      await TruffleAssert.passes(
+        config.flightSuretyApp.addFlightTickets(
+          config.flights[0].name,
+          config.flights[0].departure,
+          config.flights[0].extraTicketNumbers,
+          { from: config.firstAirline }
+        ),
+        "cannot add extra ticket for flight `addFlightInsurances`"
+      );
+    });
+
+    it(``, async() => {
+
+    });
+
+  });
+
+
+
+  describe(`\n🧳 Passengers 🎫`, async() => {
+    it(`passenger can buy insurance for his ticket`, async() => {
+      await TruffleAssert.passes(
+        config.flightSuretyApp.buyInsurance(
+          config.firstAirline,
+          config.flights[0].name,
+          config.flights[0].departure,
+          config.flights[0].extraTicketNumbers[0],
+          { from: config.passengers[0], value: web3.utils.toWei('1', "ether") }
+        ),
+        "passanger cannot buy insurance for his ticket using `buyInsurance`"
+      );
+    });
+
+    it(`  `, async() => {
+      await TruffleAssert.passes(
+        config.flightSuretyApp.buyInsurance(
+          config.firstAirline,
+          config.flights[0].name,
+          config.flights[0].departure,
+          config.flights[0].extraTicketNumbers[0],
+          { from: config.passengers[0], value: web3.utils.toWei('1', "ether") }
+        ),
+        "passanger cannot buy insurance for his ticket using `buyInsurance`"
+      );
+
+    });
+
+  });
+
 });

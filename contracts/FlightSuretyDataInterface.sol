@@ -20,6 +20,15 @@ interface FlightSuretyDataInterface {
         Funded
     }
 
+    /// Insurance states
+    enum InsuranceState {
+        NotExist,
+        WaitingForBuyer,
+        Bought,
+        Passed,
+        Failed
+    }
+
     /// Flight status codees
     // enum FlightStatus {
     //     UNKNOWN,        // 0
@@ -51,6 +60,15 @@ interface FlightSuretyDataInterface {
     struct Votes {
         uint numberOfVotes;
         mapping(address => bool) voters;
+    }
+
+    /// Insurance structure
+    struct Insurance {
+        address payable buyer;
+        address airline;
+        uint value;
+        uint ticketNumber;
+        InsuranceState state;
     }
 
     // /// Flight data structure to be saved in data mapping 
@@ -105,7 +123,9 @@ interface FlightSuretyDataInterface {
     function addAirlineVote(address) external;
     function updateAirlineFailureRate(address, uint8) external;
 
-    function buy() external payable;
+    function buildFlightInsurence(address, bytes32, uint) external;
+    function getInsuranceState(bytes32, uint) external view returns(InsuranceState);
+    function buy(address payable, bytes32) external payable;
     function creditInsurees() external pure;
     function pay() external pure;
     function fund() external payable;

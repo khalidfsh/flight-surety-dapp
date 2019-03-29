@@ -34,6 +34,9 @@ contract FlightSuretyData is FlightSuretyDataInterface {
     /// List of airlins mapped by its addresses to Airline structure
     mapping(address => Airline) private airlines;
 
+    mapping(bytes32 => Insurance) private insurances;
+    mapping(bytes32 => bytes32[]) private flightinsuranceKeys;
+    mapping(address => bytes32[]) private passengerInsuranceKeys;
 /* ---------------------------------------------------------------------------------------------- */
 
 
@@ -310,7 +313,6 @@ contract FlightSuretyData is FlightSuretyDataInterface {
         return airlines[airlineAddress].registeringVotes.numberOfVotes;
     }
 
-
 /* ---------------------------------------------------------------------------------------------- */
 
 
@@ -381,16 +383,88 @@ contract FlightSuretyData is FlightSuretyDataInterface {
         airlines[airlineAddress].failureRate = _rate;
     }
 
+    function buildFlightInsurence
+    (
+        address airlineAddress,
+        bytes32 flightKey,
+        uint ticketNumber
+    )
+        external
+        requireCallerAuthorized()
+    {
+        bytes32 insuranceKey = keccak256(abi.encodePacked(flightKey, ticketNumber));
+        require(insurances[insuranceKey].state == InsuranceState.NotExist, "Ticket number for this flight allready built");
+
+        insurances[insuranceKey] = Insurance({
+            buyer: address(0),
+            airline: airlineAddress,
+            value: 0,
+            ticketNumber: ticketNumber,
+            state: InsuranceState.WaitingForBuyer
+        });
+
+        flightinsuranceKeys[flightKey].push(insuranceKey);
+    }
+
+    function getInsuranceState
+    (
+        bytes32 flightKey,
+        uint ticketNumber
+    )
+        external
+        view
+        requireCallerAuthorized()
+        returns(InsuranceState)
+    {
+        bytes32 insuranceKey = keccak256(abi.encodePacked(flightKey, ticketNumber));
+        return (insurances[insuranceKey].state);
+    }      
+
     /// @dev Buy insurance for a flight
-    function buy()
+    function buy
+    (
+        address payable buyer,
+        bytes32 insuranceKey
+    )
         external
         payable
+        requireCallerAuthorized()
     {
+        require(insurances[insuranceKey].state == InsuranceState.WaitingForBuyer, "Insurance allredy bought");
+        insurances[insuranceKey].value = msg.value;
+        insurances[insuranceKey].buyer = buyer;
+        insurances[insuranceKey].state = InsuranceState.Bought;
 
+        passengerInsuranceKeys[buyer].push(insuranceKey);
+    }
+
+    function fetchInsuranceData(bytes32 insuranceKey) 
+        external
+        view
+        requireCallerAuthorized()
+        returns(
+            address,
+            address,
+            uint,
+            uint,
+            InsuranceState
+        )
+    {
+        Insurance storage _insurance = insurances[insuranceKey];
+        return(
+            _insurance.buyer,
+            _insurance.airline,
+            _insurance.value,
+            _insurance.ticketNumber,
+            _insurance.state
+        );  
     }
 
     /// @dev Credits payouts to insurees
-    function creditInsurees()
+    function creditInsurees
+    (
+
+    )
         external
         pure
     {
