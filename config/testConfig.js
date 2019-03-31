@@ -28,6 +28,23 @@ var Config = async function(accounts) {
         }
     ]
 
+    let firstTicket = {
+        airlineAddress: firstAirline,
+        flightName: flights[0].name,
+        departure: flights[0].departure,
+        number: flights[0].ticketNumbers[0],
+    }
+
+    // Watch contract events
+    let STATUS_CODE = {
+        UNKNOWN: '0',
+        ON_TIME: '10',
+        LATE_AIRLINE: '20',
+        LATE_WEATHER: '30',
+        LATE_TECHNICAL: '40',
+        LATE_OTHER: '50'
+    }
+
     return {
         owner: owner,
         firstAirline: firstAirline,
@@ -35,6 +52,8 @@ var Config = async function(accounts) {
         airlinesByVotes: airlinesByVotes,
         passengers: passengers,
         flights: flights,
+        firstTicket: firstTicket,
+        STATUS_CODE: STATUS_CODE,
         weiMultiple: (new BigNumber(10)).pow(18),
         flightSuretyData: flightSuretyData,
         flightSuretyApp: flightSuretyApp

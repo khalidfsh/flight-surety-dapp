@@ -49,7 +49,7 @@ contract('Flight Surety Tests', async (accounts) => {
     it(`can change operational state using toggleOperatingStatus(), event ToggledOperationalState emited`, async function () {
       let currentOperationalState = await config.flightSuretyData.isOperational.call();
       let tx = await config.flightSuretyData.toggleOperatingStatus();
-      await TruffleAssert.eventEmitted(tx, 'ToggledOperationalState', 
+      await TruffleAssert.eventEmitted(tx, 'OperationalStateToggled', 
         (ev) =>{
           return(currentOperationalState == !ev.operational)
         },
@@ -60,7 +60,7 @@ contract('Flight Surety Tests', async (accounts) => {
     it(`can block access to functions using requireIsOperational when operating status is false`, async function () {
       // opreational state is false
       await TruffleAssert.reverts(
-        config.flightSuretyData.getAirline.call(config.owner),
+        config.flightSuretyData.getRegistrationType.call(),
         "Contract is currently not operational",
         "Access not blocked for requireIsOperational"
       );
@@ -70,9 +70,12 @@ contract('Flight Surety Tests', async (accounts) => {
       // toggle opreational state to true
       await config.flightSuretyData.toggleOperatingStatus();
       await TruffleAssert.passes(
-        config.flightSuretyData.getAirline.call(config.owner),
+        config.flightSuretyData.deauthorizeCallerContract(config.flightSuretyApp.address),
         "Access not blocked for requireIsOperational"
       );
+
+      //reautorize
+      await config.flightSuretyData.authorizeCallerContract(config.flightSuretyApp.address);
     });
 
   });
@@ -126,7 +129,7 @@ contract('Flight Surety Tests', async (accounts) => {
         "Access not Allowed for requireCallerAuthorized"
       );
 
-      let addedAirline = await config.flightSuretyData.getAirline.call(config.airlinesByMediation[0]);
+      let addedAirline = await config.flightSuretyApp.getAirline.call(config.airlinesByMediation[0]);
       assert.equal(addedAirline.name, 'TestAirline1', "airline dose not registered by app contract (registerAirline)");
     });
 
@@ -141,7 +144,7 @@ contract('Flight Surety Tests', async (accounts) => {
   describe(`\n✈️  Airlines ✈️ :`, async() => {
     it(`first airline was registered in deployment by constractor`, async() => {
       assert.equal(
-        await config.flightSuretyData.isAirlineExist.call(config.owner),
+        await config.flightSuretyApp.isAirlineFunded.call(config.owner),
         true,
         "No airline added in deployment for the owner"
       );
@@ -157,18 +160,18 @@ contract('Flight Surety Tests', async (accounts) => {
 
     it(`can retrive airline data if its exist only requireExistAirline`, async() => {
       await TruffleAssert.reverts(
-        config.flightSuretyData.getAirline(config.airlinesByMediation[1]),
+        config.flightSuretyApp.getAirline(config.airlinesByMediation[1]),
         "Airline address not existing",
         "Can retrive unexisted airline!"
       );
 
       await TruffleAssert.passes(
-        config.flightSuretyData.getAirline(config.owner),
+        config.flightSuretyApp.getAirline(config.owner),
         "cannot retrive existed airline"
       );
     });
 
-    it(`registered airline can funds contract with minemum of 10 ether, more than that will be returnd to funder`, async() => {
+    it(`registered airline can funds contract with minemum of 10 ether`, async() => {
       let airlineBalanceBefore = new BigNumber(await web3.eth.getBalance(config.airlinesByMediation[0]))
       let dataContractBalanceBefore = new BigNumber(await web3.eth.getBalance(config.flightSuretyData.address))
       let fundingValue = new BigNumber(web3.utils.toWei('10', "ether"))
@@ -199,10 +202,6 @@ contract('Flight Surety Tests', async (accounts) => {
     it(`airline will be active after success funding proccess`, async() => {
       assert(await config.flightSuretyApp.isAirlineFunded.call(config.airlinesByMediation[0]), 'not isAirlineFunded')
     });
-
-    it(`new funds addesd to airline balance of funds`, async() => {
-
-    });
     
   });
 
@@ -211,16 +210,24 @@ contract('Flight Surety Tests', async (accounts) => {
   describe(`\n💁🏾‍♂️👨🏼‍⚖️🙅🏻‍♂️ Multiparty 💁🏾‍♂️👨🏼‍⚖️🙅🏻‍♂️:`, async() => {
     it(`deployed with type of mediation registration`, async() => {
       /// RegisterationType.BY_MEDIATION == 0
-      assert(await config.flightSuretyData.getRegistrationType.call(), '0', "registration type not BY_MEDIATION");
+      assert.equal(await config.flightSuretyData.getRegistrationType.call(), '0', "registration type not BY_MEDIATION");
     });
 
-    it(`only active airline (funded) can register new airline using`, async() => {
+    it(`active airline (funded) can register new airline`, async() => {
       await TruffleAssert.passes(
         config.flightSuretyApp.registerAirline(config.airlinesByMediation[1], 'TestAirline2', {from: config.airlinesByMediation[0]}),
       );
 
-      let addedAirline = await config.flightSuretyData.getAirline.call(config.airlinesByMediation[1]);
+      let addedAirline = await config.flightSuretyApp.getAirline.call(config.airlinesByMediation[1]);
       assert.equal(addedAirline.name, 'TestAirline2', "airline dose not registered by app contract (registerAirline)");
+    });
+
+    it(`register only airline (not funded) cannot add new airline by mediation`, async() => {
+      TruffleAssert.reverts(
+        config.flightSuretyApp.registerAirline(config.airlinesByMediation[2], 'TestAirline3', {from: config.airlinesByMediation[1]}),
+        "Airline should be funded to add new airline",
+        " can add new airline by mediation for not funded airline"
+      )
     });
 
     it(`first 4 registered airline added by mediation`, async() => {
@@ -234,12 +241,20 @@ contract('Flight Surety Tests', async (accounts) => {
       assert(await config.flightSuretyData.getRegistrationType.call(), '1', "registration type not BY_MEDIATION");
     });
 
+    it(`cannot register new airline by mediation after 4th registeration`, async() => {
+      TruffleAssert.reverts(
+        config.flightSuretyApp.registerAirline(config.airlinesByVotes[0], 'TestAirline4'),
+        "Only the owner of registring account can register himself",
+        "Can register airline by medation after 4th registeration"
+      );
+    });
+
     it(`the 5th register airline will be in (waiting for votes) state`, async() => {
       await TruffleAssert.passes(
         config.flightSuretyApp.registerAirline(config.airlinesByVotes[0], 'TestAirline4', {from: config.airlinesByVotes[0]}),
       );
 
-      let addedAirline = await config.flightSuretyData.getAirline.call(config.airlinesByVotes[0]);
+      let addedAirline = await config.flightSuretyApp.getAirline.call(config.airlinesByVotes[0]);
       //AirlineRegisterationState.WaitingForVotes == 0
       assert.equal(addedAirline.state, '0', "airline state not waiting for votes");
     });
@@ -255,7 +270,7 @@ contract('Flight Surety Tests', async (accounts) => {
         config.flightSuretyApp.voteForAirline(config.airlinesByVotes[0], {from: config.owner}),
       );
 
-      let addedAirline = await config.flightSuretyData.getAirline.call(config.airlinesByVotes[0]);
+      let addedAirline = await config.flightSuretyApp.getAirline.call(config.airlinesByVotes[0]);
       assert.equal(addedAirline.numberOfRegistringVotes, '1', "votes did not change")
       assert.equal(addedAirline.state, '0', "state changed before 50% consensus")
     });
@@ -275,7 +290,7 @@ contract('Flight Surety Tests', async (accounts) => {
         config.flightSuretyApp.voteForAirline(config.airlinesByVotes[0], {from: config.airlinesByMediation[1]}),
       );
 
-      let addedAirline = await config.flightSuretyData.getAirline.call(config.airlinesByVotes[0]);
+      let addedAirline = await config.flightSuretyApp.getAirline.call(config.airlinesByVotes[0]);
       assert.equal(addedAirline.numberOfRegistringVotes, '2')
       //AirlineRegisterationState.registered == 1
       assert.equal(addedAirline.state, '1')
@@ -298,7 +313,6 @@ contract('Flight Surety Tests', async (accounts) => {
   describe(`\n🛫 Flights 🛬`, async() => {
 
     it(`airline can register a new flight`, async() => {
-      console.log(config.flights)
       await TruffleAssert.passes(
         config.flightSuretyApp.registerFlight(
           config.flights[0].name,
@@ -308,6 +322,13 @@ contract('Flight Surety Tests', async (accounts) => {
         ),
         "cannot add new flight `registerFlight`"
       );
+
+      let flight = await config.flightSuretyApp.getFlight.call(
+        config.firstAirline,
+        config.flights[0].name,
+        config.flights[0].departure
+      );
+      assert(flight.isRegistered, "flight didnt registered in app contract")
 
     });
 
@@ -336,8 +357,26 @@ contract('Flight Surety Tests', async (accounts) => {
       );
     });
 
-    it(``, async() => {
+    it(`airline cannot add doublecated ticket numbers for a flight`, async() => {
+      await TruffleAssert.reverts(
+        config.flightSuretyApp.addFlightTickets(
+          config.flights[0].name,
+          config.flights[0].departure,
+          config.flights[0].extraTicketNumbers,
+          { from: config.firstAirline }
+        ),
+        "Ticket number for this flight allready built",
+        "can register allready registered flight see registerFlight function"
+      );
+    });
 
+    it(`data state will add insurance keys to its flight array`, async() => {
+      let flightInsuranceKeys = await config.flightSuretyApp.getInsuranceKeysOfFlight(
+        config.firstTicket.airlineAddress,
+        config.firstTicket.flightName,
+        config.firstTicket.departure
+      );
+      assert(flightInsuranceKeys, config.flights[0].extraTicketNumbers.length+config.flights[0].ticketNumbers.length);
     });
 
   });
@@ -346,29 +385,62 @@ contract('Flight Surety Tests', async (accounts) => {
 
   describe(`\n🧳 Passengers 🎫`, async() => {
     it(`passenger can buy insurance for his ticket`, async() => {
+      
       await TruffleAssert.passes(
         config.flightSuretyApp.buyInsurance(
-          config.firstAirline,
-          config.flights[0].name,
-          config.flights[0].departure,
-          config.flights[0].extraTicketNumbers[0],
+          config.firstTicket.airlineAddress,
+          config.firstTicket.flightName,
+          config.firstTicket.departure,
+          config.firstTicket.number,
           { from: config.passengers[0], value: web3.utils.toWei('1', "ether") }
         ),
         "passanger cannot buy insurance for his ticket using `buyInsurance`"
       );
+
+      let insurance = await config.flightSuretyApp.getInsurance(
+        config.firstTicket.airlineAddress,
+        config.firstTicket.flightName,
+        config.firstTicket.departure,
+        config.firstTicket.number
+      );
+
+      assert.equal(insurance.buyer, config.passengers[0], "bouyer of insurance didnt match the data in contract");
+      // InsuranceState.Bought == 2
+      assert.equal(insurance.state, "2", "state of insurance not in bought state")
     });
 
-    it(`  `, async() => {
-      await TruffleAssert.passes(
+    it(`passangers cannot buy insurance again`, async() => {
+      TruffleAssert.reverts(
+        config.flightSuretyApp.buyInsurance(
+          config.firstTicket.airlineAddress,
+          config.firstTicket.flightName,
+          config.firstTicket.departure,
+          config.firstTicket.number,
+          { from: config.passengers[0], value: web3.utils.toWei('1', "ether") }
+        ),
+        "Insurance for this ticket allredy bought"
+      )
+    });
+
+    it(`insurance cannot be bought with more than 1 ether`, async() => {
+      TruffleAssert.reverts(
         config.flightSuretyApp.buyInsurance(
           config.firstAirline,
           config.flights[0].name,
           config.flights[0].departure,
-          config.flights[0].extraTicketNumbers[0],
-          { from: config.passengers[0], value: web3.utils.toWei('1', "ether") }
+          config.flights[0].ticketNumbers[1],
+          { from: config.passengers[0], value: web3.utils.toWei('1.1', "ether") }
         ),
-        "passanger cannot buy insurance for his ticket using `buyInsurance`"
-      );
+        "Insurance can accept less than 1 ether"
+      )
+    });
+
+    it(`data state will add insurance keys to its buyer (passanger) array`, async() => {
+      let passangerInsuranceKeys = await config.flightSuretyApp.getInsuranceKeysOfPassanger(config.passengers[0]);
+      assert(passangerInsuranceKeys.length, 1)
+    });
+
+    it(``, async() => {
 
     });
 
