@@ -44,6 +44,8 @@ contract FlightSuretyApp {
     /// Constant of persantage of active airline most votes for a new registered airline
     uint8 PERSANTAGE_OF_VOTER;
 
+    uint8 private constant CREDIT_RATE = 150;
+
     /// Account used to deploy contract
     address private contractOwner;
 
@@ -142,63 +144,6 @@ contract FlightSuretyApp {
 
 
 /* ============================================================================================== */
-/*                                        UTILITY FUNCTIONS                                       */
-/* ============================================================================================== */
-    /// @dev Get operating status of data contract
-    /// @return A bool that is the current operating status of data contract
-    function isOperational() 
-        public 
-        view 
-        returns(bool) 
-    {
-        return flightSuretyData.isOperational();
-    }
-
-    /// @dev Check if airline is waiting for votes
-    /// @param airlineAddress airline address to check
-    /// @return A boolean if airline state is `WaitingForVotes`
-    function isAirlineWaitingForVotes(address airlineAddress)
-        public
-        view
-        returns(bool)
-    {
-        return(
-            flightSuretyData.getAirlineState(airlineAddress)
-            == FlightSuretyDataInterface.AirlineRegisterationState.WaitingForVotes
-        );
-    }
-
-    /// @dev Check if airline is registered
-    /// @param airlineAddress airline address to check
-    /// @return A boolean if airline state is `Registered`
-    function isAirlineRegistered(address airlineAddress)
-        public
-        view
-        returns(bool)
-    {
-        return(
-            flightSuretyData.getAirlineState(airlineAddress) == FlightSuretyDataInterface.AirlineRegisterationState.Registered
-        );
-    }
-
-    /// @dev Check if airline has funded
-    /// @param airlineAddress airline address to check
-    /// @return A boolean if airline state is `Funded`
-    function isAirlineFunded(address airlineAddress)
-        public
-        view
-        returns(bool)
-    {
-        return(
-            flightSuretyData.getAirlineState(airlineAddress) == FlightSuretyDataInterface.AirlineRegisterationState.Funded
-        );
-    }
-
-/* ---------------------------------------------------------------------------------------------- */
-
-
-
-/* ============================================================================================== */
 /*                                    SMART CONTRACT FUNCTIONS                                    */
 /* ============================================================================================== */
 
@@ -244,8 +189,9 @@ contract FlightSuretyApp {
     {
         require(msg.value >= 10 ether, "Funding must be 10 Ether");
 
-        (bool success, ) = address(flightSuretyData).call.value(10 ether)(abi.encodeWithSignature("empty()"));
-        require(success, "somthing went rong, try again");
+        flightSuretyData.fund.value(msg.value)(msg.sender);
+        ///(bool success, ) = address(flightSuretyData).call.value(10 ether)(abi.encodeWithSignature("empty()"));
+        ///require(success, "somthing went rong, try again");
 
         //emit
     }
@@ -261,7 +207,7 @@ contract FlightSuretyApp {
         requireIsAirlineFunded(msg.sender)
         requireNewVoter(airlineAddress, msg.sender)
     {
-        flightSuretyData.addAirlineVote(airlineAddress);
+        flightSuretyData.addAirlineVote(airlineAddress, msg.sender);
 
         //check if airline passes consensus voters
         uint oddGarde = flightSuretyData.getNumberOfActiveAirlines().mod(2);
@@ -284,6 +230,7 @@ contract FlightSuretyApp {
         uint256[] calldata ticketNumbers
     )
         external
+        requireIsOperational
         requireIsAirlineFunded(msg.sender)
     {
         bytes32 flightKey = getFlightKey(msg.sender, flightName, departure);
@@ -298,8 +245,10 @@ contract FlightSuretyApp {
             airline: msg.sender
         });
 
+        flightSuretyData.addFlightKeyToAirline(msg.sender, flightKey);
+
         for (uint i = 0; i < ticketNumbers.length; i++) {
-            flightSuretyData.buildFlightInsurence(msg.sender, flightKey, ticketNumbers[i]);
+            flightSuretyData.buildFlightInsurance(msg.sender, flightKey, ticketNumbers[i]);
         }
         
         //emit
@@ -312,12 +261,13 @@ contract FlightSuretyApp {
         uint256[] calldata ticketNumbers
     )
         external
+        requireIsOperational
         requireIsAirlineFunded(msg.sender)
     {
         bytes32 flightKey = getFlightKey(msg.sender, flightName, departure);
         require(flights[flightKey].isRegistered, "Flight not registered");
         for (uint i = 0; i < ticketNumbers.length; i++) {
-            flightSuretyData.buildFlightInsurence(msg.sender, flightKey, ticketNumbers[i]);
+            flightSuretyData.buildFlightInsurance(msg.sender, flightKey, ticketNumbers[i]);
         }
 
         flights[flightKey].updatedTimestamp = now;
@@ -334,30 +284,26 @@ contract FlightSuretyApp {
     )
         external
         payable
+        requireIsOperational
     {
+        require(msg.value > 0, "Insurance can accept more than 0");
+        require(msg.value <= 1 ether, "Insurance can accept less than 1 ether");
+
         bytes32 flightKey = getFlightKey(airlineAddress, flightName, departure);
-        bytes32 insuranceKey = keccak256(abi.encodePacked(flightKey, ticketNumber));
-        FlightSuretyDataInterface.InsuranceState _state = flightSuretyData.getInsuranceState(flightKey, ticketNumber);
+        bytes32 insuranceKey = getInsuranceKey(flightKey, ticketNumber);
+        (
+            ,
+            ,
+            ,
+            ,
+            FlightSuretyDataInterface.InsuranceState _state 
+        ) = flightSuretyData.fetchInsuranceData(insuranceKey);
 
         require(_state != FlightSuretyDataInterface.InsuranceState.NotExist, "Ticket number for this flight not exist");
-        require(_state == FlightSuretyDataInterface.InsuranceState.WaitingForBuyer, "Incurance for this ticket allredy bought");
+        require(_state == FlightSuretyDataInterface.InsuranceState.WaitingForBuyer, "Insurance for this ticket allredy bought");
 
-        flightSuretyData.buy.value(msg.value)(msg.sender, insuranceKey);
+        flightSuretyData.buyInsurance.value(msg.value)(msg.sender, insuranceKey);
     }
-    
-    /// @dev Called after oracle has updated flight status 
-    function processFlightStatus
-    (
-        address airline,
-        string memory flight,
-        uint256 timestamp,
-        uint8 statusCode
-    )
-        internal
-        pure
-    {
-    }
-
 
     // Generate a request for oracles to fetch flight information
     function fetchFlightStatus
@@ -367,6 +313,7 @@ contract FlightSuretyApp {
         uint256 timestamp                            
     )
         external
+        requireIsOperational
     {
         uint8 index = getRandomIndex(msg.sender);
 
@@ -391,6 +338,97 @@ contract FlightSuretyApp {
             flight, 
             timestamp
         );
+    }
+
+    function getAirline(address airlineAddress)
+        external
+        view
+        returns(
+            bool isExist,
+            string memory name,
+            FlightSuretyDataInterface.AirlineRegisterationState state,
+            uint numberOfRegistringVotes,
+            uint numberOfRemovingVotes,
+            uint8 failureRate,
+            bytes32[] memory flightKeys,
+            uint numberOfInsurance
+        )
+    {
+        return flightSuretyData.fetchAirlineData(airlineAddress);
+    }
+
+    function getFlight
+    (
+        address airlineAddress,
+        string calldata flightName,
+        uint departureTime
+    )
+        external
+        view
+        returns(
+            bool isRegistered,
+            string memory name,
+            uint256 departure,
+            uint8 statusCode,
+            uint256 updatedTimestamp,        
+            address airline
+        )
+    {
+        bytes32 flightKey = getFlightKey(airlineAddress, flightName, departureTime);
+        return (
+            flights[flightKey].isRegistered,
+            flights[flightKey].name,
+            flights[flightKey].departure,
+            flights[flightKey].statusCode,
+            flights[flightKey].updatedTimestamp,
+            flights[flightKey].airline
+
+        );
+    }
+
+    function getInsurance
+    (
+        address airlineAddress,
+        string calldata flightName,
+        uint departureTime,
+        uint _ticketNumber
+    )
+        external
+        view
+        returns(
+            address buyer,
+            address airline,
+            uint value,
+            uint ticketNumber,
+            FlightSuretyDataInterface.InsuranceState state
+        )
+    {
+        bytes32 flightKey = getFlightKey(airlineAddress, flightName, departureTime);
+        bytes32 insuranceKey = getInsuranceKey(flightKey, _ticketNumber);
+
+        return flightSuretyData.fetchInsuranceData(insuranceKey);
+    }
+
+    function getInsuranceKeysOfPassanger(address _address)
+        external
+        view
+        returns(bytes32[] memory)
+    {
+        return flightSuretyData.fetchPasengerInsurances(_address);
+    }
+
+    function getInsuranceKeysOfFlight
+    (
+        address airlineAddress,
+        string calldata flightName,
+        uint departureTime
+    )
+        external
+        view
+        returns(bytes32[] memory)
+    {
+        bytes32 flightKey = getFlightKey(airlineAddress, flightName, departureTime);
+        return flightSuretyData.fetchFlightInsurances(flightKey);
     }
 
 /* ---------------------------------------------------------------------------------------------- */
@@ -446,6 +484,7 @@ contract FlightSuretyApp {
     function registerOracle()
         external
         payable
+        requireIsOperational
     {
         // Require registration fee
         require(msg.value >= REGISTRATION_FEE, "Registration fee is required");
@@ -461,6 +500,7 @@ contract FlightSuretyApp {
     function getMyIndexes()
         external
         view
+        requireIsOperational
         returns(uint8[3] memory)
     {
         require(oracles[msg.sender].isRegistered, "Not registered as an oracle");
@@ -481,14 +521,14 @@ contract FlightSuretyApp {
         uint8 statusCode
     )
         external
+        requireIsOperational
     {
         require(
             (oracles[msg.sender].indexes[0] == index) || 
             (oracles[msg.sender].indexes[1] == index) || 
             (oracles[msg.sender].indexes[2] == index), 
             "Index does not match oracle request"
-            );
-
+        );
 
         bytes32 key = keccak256(
             abi.encodePacked(
@@ -529,6 +569,62 @@ contract FlightSuretyApp {
         }
     }
 
+/* ---------------------------------------------------------------------------------------------- */
+
+
+
+/* ============================================================================================== */
+/*                                        UTILITY FUNCTIONS                                       */
+/* ============================================================================================== */
+    /// @dev Get operating status of data contract
+    /// @return A bool that is the current operating status of data contract
+    function isOperational() 
+        public 
+        view 
+        returns(bool) 
+    {
+        return flightSuretyData.isOperational();
+    }
+
+    /// @dev Check if airline is waiting for votes
+    /// @param airlineAddress airline address to check
+    /// @return A boolean if airline state is `WaitingForVotes`
+    function isAirlineWaitingForVotes(address airlineAddress)
+        public
+        view
+        returns(bool)
+    {
+        return(
+            flightSuretyData.getAirlineState(airlineAddress) == FlightSuretyDataInterface.AirlineRegisterationState.WaitingForVotes
+        );
+    }
+
+    /// @dev Check if airline is registered
+    /// @param airlineAddress airline address to check
+    /// @return A boolean if airline state is `Registered`
+    function isAirlineRegistered(address airlineAddress)
+        public
+        view
+        returns(bool)
+    {
+        return(
+            flightSuretyData.getAirlineState(airlineAddress) == FlightSuretyDataInterface.AirlineRegisterationState.Registered
+        );
+    }
+
+    /// @dev Check if airline has funded
+    /// @param airlineAddress airline address to check
+    /// @return A boolean if airline state is `Funded`
+    function isAirlineFunded(address airlineAddress)
+        public
+        view
+        returns(bool)
+    {
+        return(
+            flightSuretyData.getAirlineState(airlineAddress) == FlightSuretyDataInterface.AirlineRegisterationState.Funded
+        );
+    }
+
     function getFlightKey
     (
         address airline,
@@ -540,6 +636,19 @@ contract FlightSuretyApp {
         returns(bytes32) 
     {
         return keccak256(abi.encodePacked(airline, flight, timestamp));
+    }
+
+    function getInsuranceKey
+    (
+        bytes32 flightKey,
+        uint ticketNumber
+
+    )
+        internal
+        pure 
+        returns(bytes32) 
+    {
+        return keccak256(abi.encodePacked(flightKey, ticketNumber));
     }
 
     // Returns array of three non-duplicating integers from 0-9
@@ -583,6 +692,27 @@ contract FlightSuretyApp {
 
         return random;
     }
+
+    /// @dev Called after oracle has updated flight status 
+    function processFlightStatus
+    (
+        address airline,
+        string memory flight,
+        uint256 timestamp,
+        uint8 statusCode
+    )
+        internal
+    {
+        bytes32 flightKey = getFlightKey(airline, flight, timestamp);
+        flights[flightKey].statusCode = statusCode;
+        
+        if (statusCode == STATUS_CODE_LATE_AIRLINE)
+            flightSuretyData.creditInsurees(flightKey, CREDIT_RATE);
+        else 
+            flightSuretyData.creditInsurees(flightKey, 0);
+
+    }
+
 /* ---------------------------------------------------------------------------------------------- */
 
 }   

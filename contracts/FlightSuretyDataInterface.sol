@@ -26,7 +26,7 @@ interface FlightSuretyDataInterface {
         WaitingForBuyer,
         Bought,
         Passed,
-        Failed
+        Expired
     }
 
     /// Flight status codees
@@ -47,13 +47,14 @@ interface FlightSuretyDataInterface {
 /* ============================================================================================== */
     /// Airline data strudtures to be saved in data mapping
     struct Airline {
+        bool isExist;
         string name;
         AirlineRegisterationState state;
         uint8 failureRate;
-        bool isExist;
         Votes registeringVotes;
         Votes removingVotes;
         bytes32[] flightKeys;
+        uint numberOfInsurance;
     }
 
     /// Votes struct to save voters addresses
@@ -86,49 +87,72 @@ interface FlightSuretyDataInterface {
 /* ============================================================================================== */
 /*                                        ABSTRACT FUNCTIONS                                      */
 /* ============================================================================================== */
+    /// PUBLIC UTILITY FUNCTIONS
     function isOperational() external view returns(bool);
     function isAuthorized(address) external view returns(bool); 
     function getRegistrationType() external view returns(RegisterationType);
-    function setRegistrationType(RegisterationType) external;
 
+    /// CONTRACT UTILITY FUNCTIONS
     function isAirlineExist(address) external view returns(bool);
     function isVotedForRegisteringAirline(address, address) external view returns(bool);
     function isVotedForRemovingAirline(address, address) external view returns(bool);
-
     function getNumberOfRegisteredAirlines() external view returns(uint256);
     function getNumberOfActiveAirlines() external view returns(uint256);
-    function getAirline(address)
+    function getAirlineState(address) external view returns(AirlineRegisterationState);
+    function getAirlineVotes(address) external view returns(uint256);
+    function fetchAirlineData(address)
         external
         view
         returns(
+            bool,
             string memory,
             AirlineRegisterationState,
             uint,
+            uint,
             uint8,
-            bool,
-            bytes32[] memory
+            bytes32[] memory,
+            uint
         );
-    function getAirlineState(address) external view returns(AirlineRegisterationState);
-    function getAirlineVotes(address) external view returns(uint256);
+    function fetchInsuranceData(bytes32)
+        external
+        view
+        returns(
+            address,
+            address,
+            uint,
+            uint,
+            InsuranceState
+        );
+    function fetchFlightInsurances(bytes32) external view returns(bytes32[] memory);
+    function fetchPasengerInsurances(address) external view returns(bytes32[] memory);
+    function setRegistrationType(RegisterationType) external;
     
+    /// SMART CONTRACT FUNCTIONS
     function registerAirline(
         address, 
         string calldata, 
         AirlineRegisterationState
     ) external;
-    function setAirlineState(
+    function updateAirline
+    (
         address,
-        AirlineRegisterationState
+        bool,
+        string calldata,
+        AirlineRegisterationState,
+        uint8,
+        bytes32[] calldata,
+        uint
     ) external;
-    function addAirlineVote(address) external;
-    function updateAirlineFailureRate(address, uint8) external;
-
-    function buildFlightInsurence(address, bytes32, uint) external;
-    function getInsuranceState(bytes32, uint) external view returns(InsuranceState);
-    function buy(address payable, bytes32) external payable;
-    function creditInsurees() external pure;
-    function pay() external pure;
-    function fund() external payable;
+    function deleteAirline(address) external;
+    function transferAirline(address, address) external;
+    function addFlightKeyToAirline(address, bytes32) external;
+    function setAirlineState(address, AirlineRegisterationState) external;
+    function addAirlineVote(address, address) external;
+    function buildFlightInsurance(address, bytes32, uint) external;
+    function buyInsurance(address payable, bytes32) external payable;
+    function creditInsurees(bytes32, uint8) external;
+    function payInsuree(bytes32) external;
+    function fund(address) external payable;
 
 /* ---------------------------------------------------------------------------------------------- */
 
