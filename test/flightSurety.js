@@ -372,9 +372,9 @@ contract('Flight Surety Tests', async (accounts) => {
 
     it(`data state will add insurance keys to its flight array`, async() => {
       let flightInsuranceKeys = await config.flightSuretyApp.getInsuranceKeysOfFlight(
-        config.ticket[0].airlineAddress,
-        config.ticket[0].flightName,
-        config.ticket[0].departure
+        config.tickets[0].airlineAddress,
+        config.tickets[0].flightName,
+        config.tickets[0].departure
       );
       assert(flightInsuranceKeys, config.flights[0].extraTicketNumbers.length+config.flights[0].ticketNumbers.length);
     });
@@ -388,20 +388,20 @@ contract('Flight Surety Tests', async (accounts) => {
       
       await TruffleAssert.passes(
         config.flightSuretyApp.buyInsurance(
-          config.ticket[0].airlineAddress,
-          config.ticket[0].flightName,
-          config.ticket[0].departure,
-          config.ticket[0].number,
+          config.tickets[0].airlineAddress,
+          config.tickets[0].flightName,
+          config.tickets[0].departure,
+          config.tickets[0].number,
           { from: config.passengers[0], value: web3.utils.toWei('1', "ether") }
         ),
         "passanger cannot buy insurance for his ticket using `buyInsurance`"
       );
 
       let insurance = await config.flightSuretyApp.getInsurance(
-        config.ticket[0].airlineAddress,
-        config.ticket[0].flightName,
-        config.ticket[0].departure,
-        config.ticket[0].number
+        config.tickets[0].airlineAddress,
+        config.tickets[0].flightName,
+        config.tickets[0].departure,
+        config.tickets[0].number
       );
 
       assert.equal(insurance.buyer, config.passengers[0], "bouyer of insurance didnt match the data in contract");
@@ -412,10 +412,10 @@ contract('Flight Surety Tests', async (accounts) => {
     it(`passangers cannot buy insurance again`, async() => {
       TruffleAssert.reverts(
         config.flightSuretyApp.buyInsurance(
-          config.ticket[0].airlineAddress,
-          config.ticket[0].flightName,
-          config.ticket[0].departure,
-          config.ticket[0].number,
+          config.tickets[0].airlineAddress,
+          config.tickets[0].flightName,
+          config.tickets[0].departure,
+          config.tickets[0].number,
           { from: config.passengers[0], value: web3.utils.toWei('1', "ether") }
         ),
         "Insurance for this ticket allredy bought"

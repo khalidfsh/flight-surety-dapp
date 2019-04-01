@@ -25,11 +25,11 @@ var Config = async function(accounts) {
         {
             name: 'JR225',
             departure: Math.floor(Date.now() / 1000),
-            ticketNumber: ['101', '103', '104', '132', '161', '171', '172', '221', '231', '244']
+            ticketNumbers: ['101', '103', '104', '132', '161', '171', '172', '221', '231', '244']
         }
     ]
 
-    let ticket = [
+    let tickets = [
         {
             airlineAddress: firstAirline,
             flightName: flights[0].name,
@@ -62,7 +62,7 @@ var Config = async function(accounts) {
         passengers: passengers,
         oracles: oracles,
         flights: flights,
-        firstTicket: firstTicket,
+        tickets: tickets,
         STATUS_CODE: STATUS_CODE,
         weiMultiple: (new BigNumber(10)).pow(18),
         flightSuretyData: flightSuretyData,
