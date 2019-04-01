@@ -10,6 +10,7 @@ var Config = async function(accounts) {
     let airlinesByMediation = accounts.slice(1, 4);
     let airlinesByVotes = accounts.slice(4, 11);
     let passengers = accounts.slice(11, 15);
+    let oracles = accounts.slice(15,36);
 
     let flightSuretyData = await FlightSuretyData.new({from: owner});
     let flightSuretyApp = await FlightSuretyApp.new(flightSuretyData.address, {from: owner});
@@ -28,12 +29,20 @@ var Config = async function(accounts) {
         }
     ]
 
-    let firstTicket = {
-        airlineAddress: firstAirline,
-        flightName: flights[0].name,
-        departure: flights[0].departure,
-        number: flights[0].ticketNumbers[0],
-    }
+    let ticket = [
+        {
+            airlineAddress: firstAirline,
+            flightName: flights[0].name,
+            departure: flights[0].departure,
+            number: flights[0].ticketNumbers[0],
+        },
+        {
+            airlineAddress: firstAirline,
+            flightName: flights[1].name,
+            departure: flights[1].departure,
+            number: flights[1].ticketNumbers[0],
+        }
+    ];
 
     // Watch contract events
     let STATUS_CODE = {
@@ -51,6 +60,7 @@ var Config = async function(accounts) {
         airlinesByMediation: airlinesByMediation,
         airlinesByVotes: airlinesByVotes,
         passengers: passengers,
+        oracles: oracles,
         flights: flights,
         firstTicket: firstTicket,
         STATUS_CODE: STATUS_CODE,
