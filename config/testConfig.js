@@ -12,7 +12,7 @@ var Config = async function(accounts) {
     let passengers = accounts.slice(11, 15);
 
     let flightSuretyData = await FlightSuretyData.new({from: owner});
-    let flightSuretyApp = await FlightSuretyApp.new(flightSuretyData.address, "4", "50",{from: owner});
+    let flightSuretyApp = await FlightSuretyApp.new(flightSuretyData.address, {from: owner});
 
     let flights = [
         {
