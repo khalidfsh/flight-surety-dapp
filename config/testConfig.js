@@ -5,6 +5,16 @@ var BigNumber = require('bignumber.js');
 
 var Config = async function(accounts) {
 
+    // Watch contract events
+    let STATUS_CODE = {
+        UNKNOWN: '0',
+        ON_TIME: '10',
+        LATE_AIRLINE: '20',
+        LATE_WEATHER: '30',
+        LATE_TECHNICAL: '40',
+        LATE_OTHER: '50'
+    }
+
     let owner = accounts[0];
     let firstAirline = owner;
     let airlinesByMediation = accounts.slice(1, 4);
@@ -17,12 +27,16 @@ var Config = async function(accounts) {
 
     let flights = [
         {
+            airlineAddress: firstAirline,
             name: 'HR305',
             departure: Math.floor(Date.now() / 1000),
             ticketNumbers: ['102', '103', '124', '152', '161', '172', '173', '174', '201', '205'],
-            extraTicketNumbers: ['101', '104', '131', '132', '133', '134', '141', '144', '202']
+            extraTicketNumbers: ['101', '104', '131', '132', '133', '134', '141', '144', '202'],
+            statusCode: STATUS_CODE.LATE_AIRLINE,
+            chosenIndex: 0,
         },
         {
+            airlineAddress: airlinesByVotes[0],
             name: 'JR225',
             departure: Math.floor(Date.now() / 1000),
             ticketNumbers: ['101', '103', '104', '132', '161', '171', '172', '221', '231', '244']
@@ -31,28 +45,14 @@ var Config = async function(accounts) {
 
     let tickets = [
         {
-            airlineAddress: firstAirline,
-            flightName: flights[0].name,
-            departure: flights[0].departure,
+            flight: flights[0],
             number: flights[0].ticketNumbers[0],
         },
         {
-            airlineAddress: firstAirline,
-            flightName: flights[1].name,
-            departure: flights[1].departure,
+            flight: flights[1],
             number: flights[1].ticketNumbers[0],
         }
     ];
-
-    // Watch contract events
-    let STATUS_CODE = {
-        UNKNOWN: '0',
-        ON_TIME: '10',
-        LATE_AIRLINE: '20',
-        LATE_WEATHER: '30',
-        LATE_TECHNICAL: '40',
-        LATE_OTHER: '50'
-    }
 
     return {
         owner: owner,

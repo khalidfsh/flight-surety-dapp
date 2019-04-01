@@ -296,6 +296,19 @@ contract('Flight Surety Tests', async (accounts) => {
       assert.equal(addedAirline.state, '1')
     });
 
+    it(`airline registered by votes can fund his account after voting finshed`, async() => {
+      await TruffleAssert.passes(
+        config.flightSuretyApp.fundMyAirline({
+          from: config.airlinesByVotes[0], 
+          value: web3.utils.toWei('10', "ether")
+        }),
+      );
+
+      let addedAirline = await config.flightSuretyApp.getAirline.call(config.airlinesByVotes[0]);
+      //AirlineRegisterationState.Funded == 2
+      assert.equal(addedAirline.state, '2')
+    });
+
     it(`voting for non waiting for votes airline will fail using requireIsAirlineWaitingForVotes`, async() => {
       await TruffleAssert.reverts(
         config.flightSuretyApp.voteForAirline(config.airlinesByVotes[0], {
@@ -318,18 +331,25 @@ contract('Flight Surety Tests', async (accounts) => {
           config.flights[0].name,
           config.flights[0].departure,
           config.flights[0].ticketNumbers,
-          { from: config.firstAirline }
+          { from: config.flights[0].airlineAddress }
         ),
         "cannot add new flight `registerFlight`"
       );
 
       let flight = await config.flightSuretyApp.getFlight.call(
-        config.firstAirline,
+        config.flights[0].airlineAddress,
         config.flights[0].name,
         config.flights[0].departure
       );
       assert(flight.isRegistered, "flight didnt registered in app contract")
 
+      // regidter another ailine
+      await config.flightSuretyApp.registerFlight(
+        config.flights[1].name,
+        config.flights[1].departure,
+        config.flights[1].ticketNumbers,
+        { from: config.flights[1].airlineAddress }
+      );
     });
 
     it(`airline can not register a registered flight`, async() => {
@@ -338,7 +358,7 @@ contract('Flight Surety Tests', async (accounts) => {
           config.flights[0].name,
           config.flights[0].departure,
           config.flights[0].ticketNumbers,
-          { from: config.firstAirline }
+          { from: config.flights[0].airlineAddress }
         ),
         "Flight allredy registered",
         "can register allready registered flight see registerFlight function"
@@ -351,7 +371,7 @@ contract('Flight Surety Tests', async (accounts) => {
           config.flights[0].name,
           config.flights[0].departure,
           config.flights[0].extraTicketNumbers,
-          { from: config.firstAirline }
+          { from: config.flights[0].airlineAddress }
         ),
         "cannot add extra ticket for flight `addFlightInsurances`"
       );
@@ -363,7 +383,7 @@ contract('Flight Surety Tests', async (accounts) => {
           config.flights[0].name,
           config.flights[0].departure,
           config.flights[0].extraTicketNumbers,
-          { from: config.firstAirline }
+          { from: config.flights[0].airlineAddress }
         ),
         "Ticket number for this flight allready built",
         "can register allready registered flight see registerFlight function"
@@ -372,11 +392,33 @@ contract('Flight Surety Tests', async (accounts) => {
 
     it(`data state will add insurance keys to its flight array`, async() => {
       let flightInsuranceKeys = await config.flightSuretyApp.getInsuranceKeysOfFlight(
-        config.tickets[0].airlineAddress,
-        config.tickets[0].flightName,
-        config.tickets[0].departure
+        config.flights[0].airlineAddress,
+        config.flights[0].name,
+        config.flights[0].departure
       );
       assert(flightInsuranceKeys, config.flights[0].extraTicketNumbers.length+config.flights[0].ticketNumbers.length);
+    });
+
+  });
+
+
+
+  describe(`\n🕴 Oracles 🔮`, async() => {
+    it('can register oracles', async () => {
+      // ARRANGE
+      let fee = await config.flightSuretyApp.REGISTRATION_FEE.call();
+  
+      // ACT
+      for(let i=0; i<config.oracles.length; i++) {
+        await TruffleAssert.passes(
+          await config.flightSuretyApp.registerOracle({ from: config.oracles[i], value: fee })
+        );
+      }
+    });
+
+    it(`can get oracle indexes`, async() => {
+      let result = await config.flightSuretyApp.getMyIndexes.call({from: config.oracles[0]});
+      assert(result.length == 3);
     });
 
   });
@@ -388,9 +430,9 @@ contract('Flight Surety Tests', async (accounts) => {
       
       await TruffleAssert.passes(
         config.flightSuretyApp.buyInsurance(
-          config.tickets[0].airlineAddress,
-          config.tickets[0].flightName,
-          config.tickets[0].departure,
+          config.tickets[0].flight.airlineAddress,
+          config.tickets[0].flight.name,
+          config.tickets[0].flight.departure,
           config.tickets[0].number,
           { from: config.passengers[0], value: web3.utils.toWei('1', "ether") }
         ),
@@ -398,9 +440,9 @@ contract('Flight Surety Tests', async (accounts) => {
       );
 
       let insurance = await config.flightSuretyApp.getInsurance(
-        config.tickets[0].airlineAddress,
-        config.tickets[0].flightName,
-        config.tickets[0].departure,
+        config.tickets[0].flight.airlineAddress,
+        config.tickets[0].flight.name,
+        config.tickets[0].flight.departure,
         config.tickets[0].number
       );
 
@@ -412,9 +454,9 @@ contract('Flight Surety Tests', async (accounts) => {
     it(`passangers cannot buy insurance again`, async() => {
       TruffleAssert.reverts(
         config.flightSuretyApp.buyInsurance(
-          config.tickets[0].airlineAddress,
-          config.tickets[0].flightName,
-          config.tickets[0].departure,
+          config.tickets[0].flight.airlineAddress,
+          config.tickets[0].flight.name,
+          config.tickets[0].flight.departure,
           config.tickets[0].number,
           { from: config.passengers[0], value: web3.utils.toWei('1', "ether") }
         ),
@@ -425,19 +467,73 @@ contract('Flight Surety Tests', async (accounts) => {
     it(`insurance cannot be bought with more than 1 ether`, async() => {
       TruffleAssert.reverts(
         config.flightSuretyApp.buyInsurance(
-          config.firstAirline,
-          config.flights[0].name,
-          config.flights[0].departure,
-          config.flights[0].ticketNumbers[1],
-          { from: config.passengers[0], value: web3.utils.toWei('1.1', "ether") }
+          config.tickets[1].flight.airlineAddress,
+          config.tickets[1].flight.name,
+          config.tickets[1].flight.departure,
+          config.tickets[1].number,
+          { from: config.passengers[1], value: web3.utils.toWei('1.1', "ether") }
         ),
         "Insurance can accept less than 1 ether"
-      )
+      );
     });
 
     it(`data state will add insurance keys to its buyer (passanger) array`, async() => {
       let passangerInsuranceKeys = await config.flightSuretyApp.getInsuranceKeysOfPassanger(config.passengers[0]);
       assert(passangerInsuranceKeys.length, 1)
+    });
+
+    it(`can request flight status, event OracleRequest emited`, async() => {
+      let promiseTx = config.flightSuretyApp.fetchFlightStatus(
+        config.tickets[0].flight.airlineAddress,
+        config.tickets[0].flight.name,
+        config.tickets[0].flight.departure,
+        {from: config.passengers[0]}
+      );
+      await TruffleAssert.passes(promiseTx);
+      TruffleAssert.eventEmitted(await promiseTx, 'OracleRequest', (ev) => {
+        config.tickets[0].flight.chosenIndex = ev.index
+        return true;
+      });
+    });
+
+    it(`oracles can update status code of flight using submitOracleResponse, event OracleReport emited`, async() => {
+      let reseponseCounter = 0
+      for (let i = 0; i < config.oracles.length; i++) {
+        let oracleIndexes = await config.flightSuretyApp.getMyIndexes.call({from: config.oracles[i]});
+        for (let idx = 0; idx < 3; idx++) {
+          try {
+            let tx = await config.flightSuretyApp.submitOracleResponse(
+              oracleIndexes[idx], 
+              config.tickets[0].flight.airlineAddress,
+              config.tickets[0].flight.name,
+              config.tickets[0].flight.departure,
+              config.tickets[0].flight.statusCode,
+              {from: config.oracles[i]}
+            );
+
+            reseponseCounter += 1;
+            if (reseponseCounter >= 3) {
+              TruffleAssert.eventEmitted(tx, 'FlightStatusInfo', (ev) => {
+                console.log(`**--> Report from oracles[${i}].index[${idx}]:(${oracleIndexes[idx]}) 👏🏽👏🏽👏🏽👏🏽 updated flight with status code ${ev.status}`);
+                return true;
+              });
+            } else {
+              TruffleAssert.eventEmitted(tx, 'OracleReport', (ev) => {
+                console.log(`--> Report from oracles[${i}].index[${idx}]:(${oracleIndexes[idx]}) 👏🏽 accepted with status code ${ev.status}`);
+                return true;
+              });
+            }
+
+          } catch(e) {
+            if (e.reason != 'Flight or timestamp do not match oracle request')
+              console.log(e)
+          }
+        }
+      }
+    });
+
+    it(``, async() => {
+
     });
 
     it(``, async() => {
