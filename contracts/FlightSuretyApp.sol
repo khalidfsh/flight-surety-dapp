@@ -549,6 +549,7 @@ contract FlightSuretyApp {
         );
 
         if (oracleResponses[key].responses[statusCode].length >= MIN_RESPONSES) {
+            oracleResponses[key].isOpen = false;
             emit FlightStatusInfo(
                 airline,
                 flight,
@@ -699,7 +700,7 @@ contract FlightSuretyApp {
         uint8 statusCode
     )
         internal
-    { 
+    {
         bytes32 flightKey = getFlightKey(airline, flight, timestamp);
         flights[flightKey].statusCode = statusCode;
 
