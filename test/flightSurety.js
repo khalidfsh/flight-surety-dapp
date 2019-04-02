@@ -11,6 +11,14 @@ contract('Flight Surety Tests', async (accounts) => {
     await config.flightSuretyData.authorizeCallerContract(config.flightSuretyApp.address);
   });
 
+  // afterEach('check app balance', async() => {
+  //   let appBalance = new BigNumber(await web3.eth.getBalance(config.flightSuretyApp.address));
+  //   let dataBalance = new BigNumber(await web3.eth.getBalance(config.flightSuretyData.address));
+  //   console.log(appBalance);
+  //   console.log(dataBalance);
+
+  // })
+
 /* ============================================================================================== */
 /*                                     OPERATIONS AND SETTINGS                                    */
 /* ============================================================================================== */
@@ -651,6 +659,28 @@ contract('Flight Surety Tests', async (accounts) => {
       assert.equal(insurance.value.toString(), insuranceValue15X.toString());
       // InsuranceState.Expired == 4
       assert.equal(insurance.state, '4');
+    });
+
+    it(`passanger who bought insurance for a flight and passed with status code == 20 can withdrow his insurance value`, async() => {
+      let passengerBalanceBefore = new BigNumber(await web3.eth.getBalance(config.passengers[0]));
+      let insuranceCredit15X = config.tickets[0].insuranceValue*1.5;
+  
+      await TruffleAssert.passes(
+        config.flightSuretyApp.withdrowCredit(
+          config.tickets[0].flight.airlineAddress,
+          config.tickets[0].flight.name,
+          config.tickets[0].flight.departure,
+          config.tickets[0].number,
+          { from: config.passengers[0] }
+        ),
+        "withdrowCredit() function did not passes"
+      );
+  
+      let passengerBalanceAfter = new BigNumber(await web3.eth.getBalance(config.passengers[0]));
+      let passengerBalanceShouldBe = passengerBalanceBefore.plus(insuranceCredit15X);
+      assert(passengerBalanceShouldBe.isGreaterThanOrEqualTo(passengerBalanceAfter) &&
+        passengerBalanceAfter.isGreaterThan(passengerBalanceBefore)
+      );
     });
 
   });
