@@ -4,7 +4,8 @@
   "description": "",
   "scripts": {
     "ganache-cli": "truffle develop",
-    "ganache-gui:test": "truffle test ./test/flightSurety.js --network ganachegui",
+    "test:ganache-gui": "truffle test --network ganachegui",
+    "migrate:ganache-gui": "truffle migrate --reset --network ganachegui",
     "dapp": "webpack-dev-server --mode development --config webpack.config.dapp.js",
     "dapp:prod": "webpack --mode production  --config webpack.config.dapp.js",
     "server": "rm -rf ./build/server && webpack --config webpack.config.server.js"
