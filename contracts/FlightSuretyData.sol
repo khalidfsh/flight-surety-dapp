@@ -623,7 +623,7 @@ contract FlightSuretyData is FlightSuretyDataInterface {
         external
         requireCallerAuthorized()
     {
-        Insurance storage _insurance = insurances[insuranceKey];
+        Insurance memory _insurance = insurances[insuranceKey];
         require(_insurance.state == InsuranceState.Passed, "no value to withdrow");
         require(address(this).balance > _insurance.value, "try again later");
 

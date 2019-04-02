@@ -302,6 +302,32 @@ contract FlightSuretyApp {
         flightSuretyData.buyInsurance.value(msg.value)(msg.sender, insuranceKey);
     }
 
+    function withdrowCredit
+    (
+        address airlineAddress,
+        string calldata flightName,
+        uint256 departure,
+        uint256 ticketNumber
+    )
+        external
+        requireIsOperational
+    {
+        bytes32 flightKey = getFlightKey(airlineAddress, flightName, departure);
+        bytes32 insuranceKey = getInsuranceKey(flightKey, ticketNumber);
+
+        (
+            address insuree,
+            ,
+            ,
+            ,
+
+        ) = flightSuretyData.fetchInsuranceData(insuranceKey);
+
+        require(insuree == msg.sender, "You do not own this insurance");
+
+        flightSuretyData.payInsuree(insuranceKey);
+    }
+
     // Generate a request for oracles to fetch flight information
     function fetchFlightStatus
     (
@@ -486,6 +512,9 @@ contract FlightSuretyApp {
         // Require registration fee
         require(msg.value >= REGISTRATION_FEE, "Registration fee is required");
 
+        address payable dataContract = address(uint160(address(flightSuretyData)));
+        dataContract.transfer(msg.value);
+        
         uint8[3] memory indexes = generateIndexes(msg.sender);
 
         oracles[msg.sender] = Oracle({
