@@ -78,7 +78,22 @@ contract FlightSuretyApp {
 /* ---------------------------------------------------------------------------------------------- */
 
 
+
+/* ============================================================================================== */
+/*                                        EVENT DEFINITIONS                                       */
+/* ============================================================================================== */
     event AirlineRegistered(address airlineAddress);
+    event AirlineFunded(address airlineAddress);
+    event VotedForAirline(address airlineAddress, address voterAddress);
+    event FlightRegistered(bytes32 flightKey);
+    event FlightTicketsAdded(uint[] ticketsNumbers, bytes32 flightKey);
+    event InsuranceBought(bytes32 insuranceKey);
+    event CreditDrawed(uint value);
+
+
+/* ---------------------------------------------------------------------------------------------- */
+
+   
 
 /* ============================================================================================== */
 /*                                       FUNCTION MODIFIERS                                       */
@@ -190,7 +205,7 @@ contract FlightSuretyApp {
         ///(bool success, ) = address(flightSuretyData).call.value(10 ether)(abi.encodeWithSignature("empty()"));
         ///require(success, "somthing went rong, try again");
 
-        //emit
+        emit AirlineFunded(msg.sender);
     }
 
     /// @dev Votes for an airline registrineg address
@@ -216,7 +231,7 @@ contract FlightSuretyApp {
                 FlightSuretyDataInterface.AirlineRegisterationState.Registered
             );
         }
-        ///emit
+        emit VotedForAirline(airlineAddress, msg.sender);
     }
 
     /// @dev Register a future flight for insuring.
@@ -248,7 +263,8 @@ contract FlightSuretyApp {
             flightSuretyData.buildFlightInsurance(msg.sender, flightKey, ticketNumbers[i]);
         }
 
-        //emit
+        emit FlightRegistered(flightKey);
+        emit FlightTicketsAdded(ticketNumbers, flightKey);
     }
 
     function addFlightTickets
@@ -269,7 +285,7 @@ contract FlightSuretyApp {
 
         flights[flightKey].updatedTimestamp = now;
 
-        //emit
+        emit FlightTicketsAdded(ticketNumbers, flightKey);
     }
 
     function buyInsurance
@@ -300,9 +316,10 @@ contract FlightSuretyApp {
         require(_state == FlightSuretyDataInterface.InsuranceState.WaitingForBuyer, "Insurance for this ticket allredy bought");
 
         flightSuretyData.buyInsurance.value(msg.value)(msg.sender, insuranceKey);
+        emit InsuranceBought(insuranceKey);
     }
 
-    function withdrowCredit
+    function withdrawCredit
     (
         address airlineAddress,
         string calldata flightName,
@@ -318,7 +335,7 @@ contract FlightSuretyApp {
         (
             address insuree,
             ,
-            ,
+            uint value,
             ,
 
         ) = flightSuretyData.fetchInsuranceData(insuranceKey);
@@ -326,6 +343,7 @@ contract FlightSuretyApp {
         require(insuree == msg.sender, "You do not own this insurance");
 
         flightSuretyData.payInsuree(insuranceKey);
+        emit CreditDrawed(value);
     }
 
     // Generate a request for oracles to fetch flight information
@@ -514,7 +532,7 @@ contract FlightSuretyApp {
 
         address payable dataContract = address(uint160(address(flightSuretyData)));
         dataContract.transfer(msg.value);
-        
+
         uint8[3] memory indexes = generateIndexes(msg.sender);
 
         oracles[msg.sender] = Oracle({

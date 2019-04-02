@@ -179,7 +179,7 @@ contract('Flight Surety Tests', async (accounts) => {
       );
     });
 
-    it(`registered airline can funds contract with minemum of 10 ether`, async() => {
+    it(`registered airline can funds contract with minemum of 10 ether, event AirlineFunded emited`, async() => {
       let airlineBalanceBefore = new BigNumber(await web3.eth.getBalance(config.airlinesByMediation[0]))
       let dataContractBalanceBefore = new BigNumber(await web3.eth.getBalance(config.flightSuretyData.address))
       let fundingValue = new BigNumber(web3.utils.toWei('10', "ether"))
@@ -192,14 +192,15 @@ contract('Flight Surety Tests', async (accounts) => {
         "Funding must be 10 Ether",
         "Funding less than 10 Ether accepted"
       );
-      await TruffleAssert.passes(
+
+      await Test.passesWithEvent(
+        'AirlineFunded',
         config.flightSuretyApp.fundMyAirline({
           from: config.airlinesByMediation[0], 
           value: fundingValue
-        }),
-        "funndig proccess did not passes"
+        })
       );
-
+      
       let airlineBalanceAfter = new BigNumber(await web3.eth.getBalance(config.airlinesByMediation[0]))
       let dataContractBalanceAfter = new BigNumber(await web3.eth.getBalance(config.flightSuretyData.address))
 
@@ -221,8 +222,9 @@ contract('Flight Surety Tests', async (accounts) => {
       assert.equal(await config.flightSuretyData.getRegistrationType.call(), '0', "registration type not BY_MEDIATION");
     });
 
-    it(`active airline (funded) can register new airline`, async() => {
-      await TruffleAssert.passes(
+    it(`active airline (funded) can register new airline, event AirlineRegistered emited`, async() => {
+      await Test.passesWithEvent(
+        'AirlineRegistered',
         config.flightSuretyApp.registerAirline(config.airlinesByMediation[1], 'TestAirline2', {from: config.airlinesByMediation[0]}),
       );
 
@@ -267,14 +269,15 @@ contract('Flight Surety Tests', async (accounts) => {
       assert.equal(addedAirline.state, '0', "airline state not waiting for votes");
     });
 
-    it(`only active (funded) airline can votes `, async() => {
+    it(`only active (funded) airline can votes, event VotedForAirline emited `, async() => {
       //adding extra fundded airline to make them 3 active airline (was 2 before)
       await config.flightSuretyApp.fundMyAirline({
         from: config.airlinesByMediation[1], 
         value: web3.utils.toWei('10', "ether")
       });
 
-      await TruffleAssert.passes(
+      await Test.passesWithEvent(
+        'VotedForAirline',
         config.flightSuretyApp.voteForAirline(config.airlinesByVotes[0], {from: config.owner}),
       );
 
@@ -333,15 +336,15 @@ contract('Flight Surety Tests', async (accounts) => {
 
   describe(`\n🛫 Flights 🛬`, async() => {
 
-    it(`airline can register a new flight`, async() => {
-      await TruffleAssert.passes(
+    it(`airline can register a new flight, event FlightRegistered emited`, async() => {
+      await Test.passesWithEvent(
+        'FlightRegistered',
         config.flightSuretyApp.registerFlight(
           config.flights[0].name,
           config.flights[0].departure,
           config.flights[0].ticketNumbers,
           { from: config.flights[0].airlineAddress }
-        ),
-        "cannot add new flight `registerFlight`"
+        )
       );
 
       let flight = await config.flightSuretyApp.getFlight.call(
@@ -373,15 +376,15 @@ contract('Flight Surety Tests', async (accounts) => {
       );
     });
 
-    it(`airline can add extra ticket numbers for a flight`, async() => {
-      await TruffleAssert.passes(
+    it(`airline can add extra ticket numbers for a flight, event FlightTicketsAdded emited`, async() => {
+      await Test.passesWithEvent(
+        'FlightTicketsAdded',
         config.flightSuretyApp.addFlightTickets(
           config.flights[0].name,
           config.flights[0].departure,
           config.flights[0].extraTicketNumbers,
           { from: config.flights[0].airlineAddress }
-        ),
-        "cannot add extra ticket for flight `addFlightInsurances`"
+        )
       );
     });
 
@@ -434,17 +437,17 @@ contract('Flight Surety Tests', async (accounts) => {
 
 
   describe(`\n🧳 Passengers 🎫`, async() => {
-    it(`passenger can buy insurance for his ticket`, async() => {
+    it(`passenger can buy insurance for his ticket, event InsuranceBought emited`, async() => {
       
-      await TruffleAssert.passes(
+      await Test.passesWithEvent(
+        'InsuranceBought',
         config.flightSuretyApp.buyInsurance(
           config.tickets[0].flight.airlineAddress,
           config.tickets[0].flight.name,
           config.tickets[0].flight.departure,
           config.tickets[0].number,
           { from: config.passengers[0], value: web3.utils.toWei('1', "ether") }
-        ),
-        "passanger cannot buy insurance for his ticket using `buyInsurance`"
+        )
       );
 
       let insurance = await config.flightSuretyApp.getInsurance(
@@ -665,15 +668,15 @@ contract('Flight Surety Tests', async (accounts) => {
       let passengerBalanceBefore = new BigNumber(await web3.eth.getBalance(config.passengers[0]));
       let insuranceCredit15X = config.tickets[0].insuranceValue*1.5;
   
-      await TruffleAssert.passes(
-        config.flightSuretyApp.withdrowCredit(
+      await Test.passesWithEvent(
+        'CreditDrawed',
+        config.flightSuretyApp.withdrawCredit(
           config.tickets[0].flight.airlineAddress,
           config.tickets[0].flight.name,
           config.tickets[0].flight.departure,
           config.tickets[0].number,
           { from: config.passengers[0] }
-        ),
-        "withdrowCredit() function did not passes"
+        )
       );
   
       let passengerBalanceAfter = new BigNumber(await web3.eth.getBalance(config.passengers[0]));
