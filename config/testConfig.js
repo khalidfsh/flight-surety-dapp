@@ -39,7 +39,8 @@ var Config = async function(accounts) {
             airlineAddress: airlinesByVotes[0],
             name: 'JR225',
             departure: Math.floor(Date.now() / 1000),
-            ticketNumbers: ['101', '103', '104', '132', '161', '171', '172', '221', '231', '244']
+            ticketNumbers: ['101', '103', '104', '132', '161', '171', '172', '221', '231', '244'],
+            statusCode: STATUS_CODE.ON_TIME,
         }
     ]
 
@@ -47,6 +48,7 @@ var Config = async function(accounts) {
         {
             flight: flights[0],
             number: flights[0].ticketNumbers[0],
+            insuranceValue: web3.utils.toWei('1', "ether"),
         },
         {
             flight: flights[1],
