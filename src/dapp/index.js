@@ -12,7 +12,6 @@ import './flightsurety.css';
 
         // Read transaction
         contract.isOperational((error, result) => {
-            console.log(error,result);
             display('Operational Status', 'Check if contract is operational', [ { label: 'Operational Status', error: error, value: result} ]);
         });
     
@@ -22,7 +21,44 @@ import './flightsurety.css';
             let flight = DOM.elid('flight-number').value;
             // Write transaction
             contract.fetchFlightStatus(flight, (error, result) => {
-                display('Oracles', 'Trigger oracles', [ { label: 'Fetch Flight Status', error: error, value: result.flight + ' ' + result.timestamp} ]);
+                display(
+                    'Oracles', 'Trigger oracles', 
+                    [ 
+                        { label: 'Fetch Flight Status', error: error, value: result.name + ' ' + result.departure }
+                    ]
+                );
+            });
+        })
+
+        DOM.elid('buy-insurance').addEventListener('click', async () => {
+            let flight = DOM.elid('flight-number').value;
+            let ticket = DOM.elid('ticket-number').value;
+            let amount = DOM.elid('purchase-amount').value;
+            // Write transaction
+            await contract.purchaseInsurance(flight, ticket, amount, (error, result) => {
+                display(
+                    'Insurance', 'Insurance purchase', 
+                    [ 
+                        { label: 'Flight number', error: error, value: result.flight.name + ' ' + result.flight.departure }, 
+                        { label: 'Ticket Number',  value: result.ticket }, 
+                    ]
+                );
+
+            });
+        })
+
+        DOM.elid('withdraw-insurance').addEventListener('click', async() => {
+            let flight = DOM.elid('flight-number').value;
+            let ticket = DOM.elid('ticket-number').value;
+            // Write transaction
+            await contract.withdrawCredit(flight, ticket, (error, result) => {
+                display(
+                    'Insurance', 'Insurance credit withdrow', 
+                    [ 
+                        { label: 'Flight number', error: error, value: result.flight.name + ' ' + result.flight.departure }, 
+                        { label: 'Ticket Number',  value: result.ticket }, 
+                    ]
+                );
             });
         })
     

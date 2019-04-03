@@ -129,7 +129,7 @@ contract FlightSuretyApp {
 
     /// @dev Modifier that checks if airline address has registered
     modifier requireIsAirlineRegistered(address airlineAddress) {
-        require(isAirlineRegistered(airlineAddress), "Airline not registered");
+        require(isAirlineRegistered(airlineAddress), "Airline not registered, or has been funded allready");
         _;
     }
 
@@ -288,7 +288,7 @@ contract FlightSuretyApp {
         emit FlightTicketsAdded(ticketNumbers, flightKey);
     }
 
-    function buyInsurance
+    function purchaseInsurance
     (
         address airlineAddress,
         string calldata flightName,
@@ -304,18 +304,9 @@ contract FlightSuretyApp {
 
         bytes32 flightKey = getFlightKey(airlineAddress, flightName, departure);
         bytes32 insuranceKey = getInsuranceKey(flightKey, ticketNumber);
-        (
-            ,
-            ,
-            ,
-            ,
-            FlightSuretyDataInterface.InsuranceState _state
-        ) = flightSuretyData.fetchInsuranceData(insuranceKey);
-
-        require(_state != FlightSuretyDataInterface.InsuranceState.NotExist, "Ticket number for this flight not exist");
-        require(_state == FlightSuretyDataInterface.InsuranceState.WaitingForBuyer, "Insurance for this ticket allredy bought");
-
+       
         flightSuretyData.buyInsurance.value(msg.value)(msg.sender, insuranceKey);
+
         emit InsuranceBought(insuranceKey);
     }
 

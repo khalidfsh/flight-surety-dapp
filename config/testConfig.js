@@ -54,6 +54,7 @@ var Config = async function(accounts) {
         {
             flight: flights[1],
             number: flights[1].ticketNumbers[0],
+            insuranceValue: web3.utils.toWei('0.5', "ether"),
         }
     ];
 

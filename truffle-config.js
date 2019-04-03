@@ -23,7 +23,7 @@ const HDWalletProvider = require('truffle-hdwallet-provider');
 //
 // const fs = require('fs');
 // const mnemonic = fs.readFileSync(".secret").toString().trim();
-const mnemonic = "mask cycle spray ketchup milk trick brass rely erosion client rare when";
+//const mnemonic = "mask cycle spray ketchup milk trick brass rely erosion client rare when";
 
 module.exports = {
   /**
@@ -47,17 +47,20 @@ module.exports = {
       accounts: 50,
     },
     development: {
-      provider: function() {
-        return new HDWalletProvider(mnemonic, "http://127.0.0.1:9545/", 0, 50);
-      },
+      // provider: function() {
+      //   return new HDWalletProvider(mnemonic, "http://127.0.0.1:9545/", 0, 50);
+      // },
+      host: "127.0.0.1",
+      port: 9545,
       network_id: '*',
-      ///gas: 9999998,
+      gas: 9999998,
     },
 
     ganachegui: {
       host: "127.0.0.1",
       port: 8545,
       network_id: '*',
+      gas: 9999998,
     }
 
     // Another network with more advanced options...
@@ -99,13 +102,13 @@ module.exports = {
     solc: {
       version: "0.5.2",    // Fetch exact version from solc-bin (default: truffle's version)
       // docker: true,        // Use "0.5.1" you've installed locally with docker (default: false)
-      // settings: {          // See the solidity docs for advice about optimization and evmVersion
-      //  optimizer: {
-      //    enabled: false,
-      //    runs: 200
-      //  },
+      settings: {          // See the solidity docs for advice about optimization and evmVersion
+       optimizer: {
+         enabled: true,
+         runs: 200
+       },
       //  evmVersion: "byzantium"
-      // }
+      }
     }
   }
 }

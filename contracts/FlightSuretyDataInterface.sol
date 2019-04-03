@@ -65,7 +65,7 @@ interface FlightSuretyDataInterface {
 
     /// Insurance structure
     struct Insurance {
-        address payable buyer;
+        address buyer;
         address airline;
         uint value;
         uint ticketNumber;
@@ -149,7 +149,7 @@ interface FlightSuretyDataInterface {
     function setAirlineState(address, AirlineRegisterationState) external;
     function addAirlineVote(address, address) external;
     function buildFlightInsurance(address, bytes32, uint) external;
-    function buyInsurance(address payable, bytes32) external payable;
+    function buyInsurance(address, bytes32) external payable;
     function creditInsurees(bytes32, uint8) external;
     function payInsuree(bytes32) external;
     function fund(address) external payable;

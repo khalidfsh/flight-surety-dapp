@@ -79,7 +79,8 @@ contract FlightSuretyData is FlightSuretyDataInterface {
         external 
         payable 
     {
-        //fund(msg.sender);
+        if (msg.value > 10 ether)
+            fund(msg.sender);
     }
 
 /* ---------------------------------------------------------------------------------------------- */
@@ -572,19 +573,20 @@ contract FlightSuretyData is FlightSuretyDataInterface {
     /// @param insuranceKey Insurance key to buy it
     function buyInsurance
     (
-        address payable buyer,
+        address  buyer,
         bytes32 insuranceKey
     )
         external
         payable
         requireCallerAuthorized()
     {
-        require(insurances[insuranceKey].state == InsuranceState.WaitingForBuyer, "Insurance allredy bought, or expired");
+        require(insurances[insuranceKey].state == InsuranceState.WaitingForBuyer, "Insurance allredy bought, or not exist or expired");
+
         insurances[insuranceKey].value = msg.value;
         insurances[insuranceKey].buyer = buyer;
         insurances[insuranceKey].state = InsuranceState.Bought;
 
-        passengerInsuranceKeys[buyer].push(insuranceKey);
+        //passengerInsuranceKeys[buyer].push(insuranceKey);
     }
 
     /// @dev Credits payouts to insurees
@@ -604,7 +606,7 @@ contract FlightSuretyData is FlightSuretyDataInterface {
         for (uint i = 0; i < _insurancesKeys.length; i++) {
             Insurance storage _insurance = insurances[_insurancesKeys[i]];
 
-            if (_insurance.state == InsuranceState.Bought || _insurance.value > 0) {
+            if (_insurance.state == InsuranceState.Bought) {
                 _insurance.value = _insurance.value.mul(creditRate).div(100);
                 if (_insurance.value > 0)
                     _insurance.state = InsuranceState.Passed;
@@ -630,13 +632,14 @@ contract FlightSuretyData is FlightSuretyDataInterface {
         uint _value = _insurance.value;
         _insurance.value = 0;
         _insurance.state = InsuranceState.Expired;
-        _insurance.buyer.transfer(_value);
+        address payable insuree = address(uint160(_insurance.buyer));
+        insuree.transfer(_value);
 
     }
 
     /// @dev Initial funding for the insurance. 
     function fund(address funder)
-        external
+        public
         payable
     {
         require(airlines[funder].state == AirlineRegisterationState.Registered, "Airline address not registered yet!");

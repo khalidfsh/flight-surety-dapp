@@ -12,18 +12,24 @@ module.exports = async function(deployer, network, accounts) {
 
   
   await deployer.deploy(FlightSuretyApp, dataContract.address);
-  const appContract = await FlightSuretyData.deployed();
+  const appContract = await FlightSuretyApp.deployed();
+
+  let url = 'http://localhost:9545';
+  if (network == 'ganachegui')
+    url = 'http://localhost:8545';
 
   let config = {
     localhost: {
-      url: 'http://localhost:9545',
+      url: url,
       dataAddress: dataContract.address,
       appAddress: appContract.address
     }
   }
+
+  
   
   fs.writeFileSync(__dirname + '/../src/dapp/config.json',JSON.stringify(config, null, '\t'), 'utf-8');
   fs.writeFileSync(__dirname + '/../src/server/config.json',JSON.stringify(config, null, '\t'), 'utf-8');
 
-  console.log(network)
+
 }

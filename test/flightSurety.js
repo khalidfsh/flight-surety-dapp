@@ -441,14 +441,23 @@ contract('Flight Surety Tests', async (accounts) => {
       
       await Test.passesWithEvent(
         'InsuranceBought',
-        config.flightSuretyApp.buyInsurance(
+        config.flightSuretyApp.purchaseInsurance(
           config.tickets[0].flight.airlineAddress,
           config.tickets[0].flight.name,
           config.tickets[0].flight.departure,
           config.tickets[0].number,
-          { from: config.passengers[0], value: web3.utils.toWei('1', "ether") }
+          { from: config.passengers[0], value: config.tickets[0].insuranceValue }
         )
       );
+
+      //extra insurance
+      config.flightSuretyApp.purchaseInsurance(
+        config.tickets[1].flight.airlineAddress,
+        config.tickets[1].flight.name,
+        config.tickets[1].flight.departure,
+        config.tickets[1].number,
+        { from: config.passengers[1], value: config.tickets[0].insuranceValue }
+      )
 
       let insurance = await config.flightSuretyApp.getInsurance(
         config.tickets[0].flight.airlineAddress,
@@ -464,20 +473,20 @@ contract('Flight Surety Tests', async (accounts) => {
 
     it(`passangers cannot buy insurance again`, async() => {
       TruffleAssert.reverts(
-        config.flightSuretyApp.buyInsurance(
+        config.flightSuretyApp.purchaseInsurance(
           config.tickets[0].flight.airlineAddress,
           config.tickets[0].flight.name,
           config.tickets[0].flight.departure,
           config.tickets[0].number,
           { from: config.passengers[0], value: config.tickets[0].insuranceValue }
         ),
-        "Insurance for this ticket allredy bought"
+        "Insurance allredy bought, or not exist or expired"
       )
     });
 
     it(`insurance cannot be bought with more than 1 ether`, async() => {
       TruffleAssert.reverts(
-        config.flightSuretyApp.buyInsurance(
+        config.flightSuretyApp.purchaseInsurance(
           config.tickets[1].flight.airlineAddress,
           config.tickets[1].flight.name,
           config.tickets[1].flight.departure,
@@ -488,23 +497,21 @@ contract('Flight Surety Tests', async (accounts) => {
       );
     });
 
-    it(`data state will add insurance keys to its buyer (passanger) array`, async() => {
-      let passangerInsuranceKeys = await config.flightSuretyApp.getInsuranceKeysOfPassanger(config.passengers[0]);
-      assert(passangerInsuranceKeys.length, 1)
-    });
+    // it(`data state will add insurance keys to its buyer (passanger) array`, async() => {
+    //   let passangerInsuranceKeys = await config.flightSuretyApp.getInsuranceKeysOfPassanger(config.passengers[0]);
+    //   assert(passangerInsuranceKeys.length, 1)
+    // });
 
     it(`can request flight status, event OracleRequest emited`, async() => {
-      let promiseTx = config.flightSuretyApp.fetchFlightStatus(
-        config.tickets[0].flight.airlineAddress,
-        config.tickets[0].flight.name,
-        config.tickets[0].flight.departure,
-        {from: config.passengers[0]}
+      await Test.passesWithEvent(
+        'OracleRequest',
+        config.flightSuretyApp.fetchFlightStatus(
+          config.tickets[0].flight.airlineAddress,
+          config.tickets[0].flight.name,
+          config.tickets[0].flight.departure,
+          {from: config.passengers[0]}
+        )
       );
-      await TruffleAssert.passes(promiseTx);
-      TruffleAssert.eventEmitted(await promiseTx, 'OracleRequest', (ev) => {
-        config.tickets[0].flight.chosenIndex = ev.index
-        return true;
-      });
 
       // ticket2 asking for fetchFlightStatus
       await config.flightSuretyApp.fetchFlightStatus(
@@ -594,8 +601,8 @@ contract('Flight Surety Tests', async (accounts) => {
             }
 
           } catch(e) {
-            if (e.reason != 'Flight or timestamp do not match oracle request')
-              console.log(e)
+            // if (e.reason != 'Flight or timestamp do not match oracle request')
+            //   console.log(e)
           }
         }
       }
@@ -619,7 +626,7 @@ contract('Flight Surety Tests', async (accounts) => {
       assert.equal(flight2.statusCode, config.flights[1].statusCode);
     });
 
-    it(`value of insurance which bought by passenger crideted after oracles respones if status code == 20`, async() => {
+    it(`value of insurance which bought by passenger credited after oracles respones if status code == 20`, async() => {
       let insurance = await config.flightSuretyApp.getInsurance.call(
         config.tickets[0].flight.airlineAddress,
         config.tickets[0].flight.name,
